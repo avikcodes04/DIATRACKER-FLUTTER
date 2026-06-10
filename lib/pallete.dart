@@ -29,12 +29,10 @@ class Pallete {
   static const Color blackColor = Colors.black;
   static const Color whiteColor = Colors.white;
   static const Color ScaffoldColor = Color.fromARGB(255, 147, 238, 232);
-
   // Accent color (for buttons, highlights, icons) → calm healthcare green
   static const Color accentColor = Color.fromRGBO(34, 150, 120, 1);
   static const Color expansionClosedTileColor = Color.fromARGB(255, 197, 250, 206);
   static const Color hintTextColor2 = Color.fromARGB(255, 194, 242, 221);
-
 
 
   static const Color newTextColor =  Color.fromARGB(255, 0, 94, 72);

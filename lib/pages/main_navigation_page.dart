@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:diatrack/pages/ai_input_page.dart';
 import 'homepage.dart';
+import 'package:diatrack/pages/profile_page.dart';
+import 'package:diatrack/pages/patients_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({super.key});
@@ -54,35 +56,5 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   }
 }
 
-class PatientsPage extends StatelessWidget {
-  const PatientsPage({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text("Patients")),
-    );
-  }
-}
 
-// class AiPage extends StatelessWidget {
-//   const AiPage({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return const Scaffold(
-//       body: Center(child: Text("AI Assistant")),
-//     );
-//   }
-// }
-
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text("Profile")),
-    );
-  }
-}
