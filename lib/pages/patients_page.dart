@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../pallete.dart';
 import 'package:diatrack/pages/ai_input_page.dart';
-
+import 'package:diatrack/widgets/patient_card.dart';
 class PatientsPage extends StatefulWidget {
   const PatientsPage({super.key});
 
@@ -14,54 +16,83 @@ class _PatientsPageState extends State<PatientsPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // Stub data
-  final List<Map<String, dynamic>> _patients = [
-    {
-      "name": "Ramesh Patel",
-      "id": "CKD-001",
-      "age": 58,
-      "gender": "Male",
-      "diagnosis": "CKD Stage 5",
-      "lastVisit": "2026-06-05",
-      "status": "Critical",
-    },
-    {
-      "name": "Sunita Sharma",
-      "id": "CKD-002",
-      "age": 45,
-      "gender": "Female",
-      "diagnosis": "CKD Stage 3",
-      "lastVisit": "2026-06-07",
-      "status": "Stable",
-    },
-    {
-      "name": "Arjun Mehta",
-      "id": "CKD-003",
-      "age": 63,
-      "gender": "Male",
-      "diagnosis": "CKD Stage 4",
-      "lastVisit": "2026-06-06",
-      "status": "Moderate",
-    },
-    {
-      "name": "Priya Nair",
-      "id": "CKD-004",
-      "age": 39,
-      "gender": "Female",
-      "diagnosis": "CKD Stage 2",
-      "lastVisit": "2026-06-08",
-      "status": "Stable",
-    },
-    {
-      "name": "Vikram Singh",
-      "id": "CKD-005",
-      "age": 71,
-      "gender": "Male",
-      "diagnosis": "CKD Stage 5",
-      "lastVisit": "2026-06-04",
-      "status": "Critical",
-    },
-  ];
+  List<Map<String, dynamic>> _patients = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPatients();
+  }
+
+  Future<void> _fetchPatients() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse(
+          'https://1nu06hynfd.execute-api.us-east-2.amazonaws.com/default/getPatientsList',
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> raw = data['patients'] ?? [];
+
+        setState(() {
+          _patients = raw.map((p) {
+            // Derive status from diagnosis / eGFR
+            String status = _deriveStatus(p);
+            return {
+              "name": p['patient_name'] ?? 'Unknown',
+              "id": p['patientId'] ?? '-',
+              "age": (p['patient_age'] ?? 0).toInt(),
+              "gender": p['patient_gender'] ?? '-',
+              "diagnosis": p['diagnosis'] ?? '-',
+              "lastVisit": _formatDate(p['stored_at']),
+              "status": status,
+            };
+          }).toList();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to load patients (${response.statusCode})';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Network error: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Derives a simple status string from the raw patient map.
+  String _deriveStatus(Map<String, dynamic> p) {
+    final egfr = (p['lab_egfr_ml_min_1_73m2'] ?? 100).toDouble();
+    final diagnosis = (p['diagnosis'] ?? '').toString().toLowerCase();
+
+    if (diagnosis.contains('end stage') || egfr < 15) return 'Critical';
+    if (egfr < 45) return 'Moderate';
+    return 'Stable';
+  }
+
+  /// Formats an ISO date-time string to YYYY-MM-DD.
+  String _formatDate(dynamic raw) {
+    if (raw == null) return '-';
+    try {
+      final dt = DateTime.parse(raw.toString());
+      return "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+    } catch (_) {
+      return raw.toString().split('T').first;
+    }
+  }
 
   List<Map<String, dynamic>> get _filtered => _patients
       .where(
@@ -102,9 +133,15 @@ class _PatientsPageState extends State<PatientsPage> {
           ),
         ),
         actions: [
+          if (!_isLoading)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _fetchPatients,
+              tooltip: 'Refresh',
+            ),
           IconButton(
             icon: const Icon(Icons.filter_list),
-            onPressed: () {}, // TODO: filter bottom sheet
+            onPressed: () {},
           ),
         ],
       ),
@@ -114,195 +151,134 @@ class _PatientsPageState extends State<PatientsPage> {
             context,
             MaterialPageRoute(builder: (_) => const AiInputPage()),
           );
-        }, // TODO: navigate to add patient
+        },
         backgroundColor: Pallete.accentColor,
         child: const Icon(Icons.person_add_outlined, color: Colors.white),
       ),
-      body: Column(
-        children: [
-          // ── Search Bar ───────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: InputDecoration(
-                hintText: "Search by name, ID or diagnosis...",
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                filled: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-
-          // ── Count ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "${_filtered.length} patient${_filtered.length == 1 ? '' : 's'}",
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-            ),
-          ),
-
-          // ── List ─────────────────────────────────────────────
-          Expanded(
-            child: _filtered.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.person_search,
-                          size: 60,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          "No patients found",
-                          style: TextStyle(color: Colors.grey.shade400),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-                    itemCount: _filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final p = _filtered[index];
-                      return _patientCard(p);
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _patientCard(Map<String, dynamic> p) {
-    final statusColor = _statusColor(p['status']);
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 1.5,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {}, // TODO: navigate to patient detail
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              // Avatar
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Pallete.accentColor.withOpacity(0.12),
-                child: Text(
-                  p['name'].split(' ').map((e) => e[0]).take(2).join(),
-                  style: TextStyle(
-                    color: Pallete.accentColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-
-              // Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? _buildError()
+              : Column(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            p['name'],
-                            style: GoogleFonts.comfortaa(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
+                    // ── Search Bar ──────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                        decoration: InputDecoration(
+                          hintText: "Search by name, ID or diagnosis...",
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 0),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
                           ),
                         ),
-                        // Status badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: statusColor.withOpacity(0.4),
-                            ),
-                          ),
-                          child: Text(
-                            p['status'],
-                            style: TextStyle(
-                              color: statusColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "${p['id']}  ·  ${p['age']} yrs  ·  ${p['gender']}",
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.medical_information_outlined,
-                          size: 13,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          p['diagnosis'],
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 12,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          p['lastVisit'],
+
+                    // ── Count ───────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "${_filtered.length} patient${_filtered.length == 1 ? '' : 's'}",
                           style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
+                              color: Colors.grey, fontSize: 13),
                         ),
-                      ],
+                      ),
+                    ),
+
+                    // ── List ────────────────────────────────────
+                    Expanded(
+                      child: _filtered.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.person_search,
+                                      size: 60,
+                                      color: Colors.grey.shade300),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    "No patients found",
+                                    style: TextStyle(
+                                        color: Colors.grey.shade400),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _fetchPatients,
+                              child: ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(
+                                    16, 4, 16, 100),
+                                itemCount: _filtered.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  final p = _filtered[index];
+                                  return PatientCard(
+                                    patient: p,
+                                    onTap: () {
+                                      // Handle patient card tap
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
                     ),
                   ],
                 ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_outlined,
+                size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _fetchPatients,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Pallete.accentColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+
 }
