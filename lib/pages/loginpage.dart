@@ -1,8 +1,10 @@
+import 'package:diatrack/models/login_response.dart';
 import 'package:diatrack/pages/main_navigation_page.dart';
 import 'package:diatrack/pallete.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'package:diatrack/services/auth_service.dart';
+import 'package:diatrack/services/storage_service.dart';
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -13,6 +15,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -28,6 +32,82 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+//   Future<void> _login() async {
+//   final email = _emailController.text.trim();
+//   final password = _passwordController.text;
+
+//   if (email.isEmpty || password.isEmpty) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       const SnackBar(
+//         content: Text("Please enter email and password"),
+//       ),
+//     );
+//     return;
+//   }
+
+//   final loginResponse = await _authService.login(
+//     email: email,
+//     password: password,
+//   );
+//   await StorageService.saveLogin(loginResponse);
+
+//   if (!mounted) return;
+
+//   if (loginResponse) {
+//     Navigator.pushReplacement(
+//       context,
+//       MaterialPageRoute(
+//         builder: (_) => const MainNavigationPage(),
+//       ),
+//     );
+//   } else {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       const SnackBar(
+//         content: Text("Invalid email or password"),
+//       ),
+//     );
+//   }
+// }
+  Future<void> _login() async {
+  final email = _emailController.text.trim();
+  final password = _passwordController.text;
+
+  if (email.isEmpty || password.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Please enter email and password"),
+      ),
+    );
+    return;
+  }
+
+  try {
+    final loginResponse = await _authService.login(
+      email: email,
+      password: password,
+    );
+
+    await StorageService.saveLogin(loginResponse);
+
+    if (!mounted) return;
+    final user = await _authService.getCurrentUser();
+    print('Current user: $user');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MainNavigationPage(),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString()),
+      ),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +226,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: false,
                   cursorColor: Pallete.accentColor,
                   decoration: InputDecoration(
                     hintText: '••••••••',
@@ -206,7 +286,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       elevation: 3,
                     ),
-                    onPressed: _navigateToHome,
+                    onPressed: _login,
                     child: Text(
                       'Login',
                       style: GoogleFonts.lato(
