@@ -32,7 +32,7 @@ class AuthService {
 
       final jsonResponse = jsonDecode(response.body);
       final error = jsonResponse["error"] as String;
-      throw Exception("Login failed: $error");
+      throw Exception(error);
     } catch (e) {
       throw Exception("Login failed: $e");
     }
@@ -58,5 +58,71 @@ class AuthService {
   }
 
   throw Exception("Failed to fetch user");
-}
+  }
+  Future<void> logout() async {
+    await StorageService.clear();
+  }
+   Future<void> signup({
+    required String username,
+    required String email,
+    required String password,
+    required String name,
+  }) async {
+    final response = await http.post(
+      Uri.parse(Secrets.signup),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "username": username,
+        "email": email,
+        "password": password,
+        "name": name,
+      }),
+    );
+
+    final jsonResponse = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return;
+    }
+
+    throw Exception(
+      jsonResponse["message"] ??
+          jsonResponse["detail"] ??
+          jsonResponse["error"] ??
+          "Signup failed",
+    );
+  }
+
+  // ---------------- Confirm Signup ----------------
+
+  Future<void> confirmSignup({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await http.post(
+      Uri.parse(Secrets.confirm),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "email": email,
+        "otp": otp,
+      }),
+    );
+
+    final jsonResponse = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return;
+    }
+
+    throw Exception(
+      jsonResponse["message"] ??
+          jsonResponse["detail"] ??
+          jsonResponse["error"] ??
+          "Confirmation failed",
+    );
+  }
 }

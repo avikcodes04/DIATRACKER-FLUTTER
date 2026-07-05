@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:diatrack/pages/loginpage.dart';
+import 'package:flutter/material.dart';
+// import 'package:diatrack/pages/loginpage.dart';
+// import 'package:diatrack/pages/otp_verification_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'DiaTracker',
-      home: const LoginPage(),
+      home: const LoginPage(), // Replace with a valid email for testing
     );
   }
 }

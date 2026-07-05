@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:diatrack/services/auth_service.dart';
 import 'package:diatrack/services/storage_service.dart';
+import 'package:diatrack/pages/signuppage.dart';
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -32,6 +33,18 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+
+
+  void _signupnav() async {
+
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const SignupPage(),
+    ),
+    (route) => false,
+  );
+}
 //   Future<void> _login() async {
 //   final email = _emailController.text.trim();
 //   final password = _passwordController.text;
@@ -310,7 +323,7 @@ class _LoginPageState extends State<LoginPage> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    onPressed: _navigateToHome,
+                    onPressed: _signupnav,
                     child: Text(
                       'Create an account',
                       style: GoogleFonts.lato(

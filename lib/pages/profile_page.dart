@@ -1,10 +1,59 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../pallete.dart';
-
-class ProfilePage extends StatelessWidget {
+import '../widgets/profile_page_widgets/profile_action_tile.dart';
+import '../widgets/profile_page_widgets/profile_info_tile.dart';
+import "../pages/loginpage.dart";
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final AuthService _authService = AuthService();
+
+  Map<String, dynamic>? _user;
+  bool _isLoading = true;
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    try {
+      final user = await _authService.getCurrentUser();
+
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      debugPrint(e.toString());
+    }
+  }
+    
+  
+  Future<void> _logout() async {
+  await _authService.logout();
+
+  if (!mounted) return;
+
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const LoginPage(),
+    ),
+    (route) => false,
+  );
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,7 +88,7 @@ class ProfilePage extends StatelessWidget {
 
             // ── Name & Role ────────────────────────────────────
             Text(
-              "Dr. John Doe",
+               _user?["name"] ?? "Loading...",
               style: GoogleFonts.comfortaa(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -58,58 +107,50 @@ class ProfilePage extends StatelessWidget {
             const Divider(),
 
             // ── Info Tiles ─────────────────────────────────────
-            _infoTile(Icons.email_outlined, "Email", "johndoe@hospital.com"),
-            _infoTile(Icons.phone_outlined, "Phone", "+91 98765 43210"),
-            _infoTile(Icons.local_hospital_outlined, "Hospital", "City Kidney Care Center"),
-            _infoTile(Icons.badge_outlined, "License No.", "MCI-2024-XXXX"),
+            ProfileInfoTile(
+              icon: Icons.email_outlined,
+              label: "Email",
+              value: "${_user?["email"] ?? "Loading..."}",
+            ),
+            ProfileInfoTile(
+              icon: Icons.phone_outlined,
+              label: "Phone",
+              value: "+91 98765 43210",
+            ),
+            ProfileInfoTile(
+              icon: Icons.local_hospital_outlined,
+              label: "Hospital",
+              value: "City Kidney Care Center",
+            ),
+            ProfileInfoTile(
+              icon: Icons.badge_outlined,
+              label: "License No.",
+              value: "MCI-2024-XXXX",
+            ),
 
             const Divider(),
             const SizedBox(height: 8),
 
             // ── Actions ────────────────────────────────────────
-            _actionTile(Icons.edit_outlined, "Edit Profile", () {}),
-            _actionTile(Icons.lock_outline, "Change Password", () {}),
-            _actionTile(Icons.logout, "Logout", () {}, color: Colors.red),
+            ProfileActionTile(
+              icon: Icons.edit_outlined,
+              label: "Edit Profile",
+              onTap: () {},
+            ),
+            ProfileActionTile(
+              icon: Icons.lock_outline,
+              label: "Change Password",
+              onTap: () {},
+            ),
+            ProfileActionTile(
+              icon: Icons.logout,
+              label: "Logout",
+              onTap: _logout,
+              color: Colors.red,
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _infoTile(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-      child: Row(
-        children: [
-          Icon(icon, color: Pallete.accentColor, size: 22),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500)),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _actionTile(IconData icon, String label, VoidCallback onTap,
-      {Color color = Colors.black87}) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      leading: Icon(icon, color: color),
-      title: Text(label,
-          style: TextStyle(color: color, fontWeight: FontWeight.w500)),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
-      onTap: onTap,
     );
   }
 }
