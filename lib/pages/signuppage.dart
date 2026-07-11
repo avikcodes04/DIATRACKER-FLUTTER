@@ -3,6 +3,7 @@ import 'package:diatrack/pages/otp_verification_page.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:diatrack/services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -15,8 +16,7 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
+  
   final AuthService _authService = AuthService();
 
   bool _isLoading = false;
@@ -26,57 +26,65 @@ class _SignupPageState extends State<SignupPage> {
     _nameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
-    _passwordController.dispose();
+    
     super.dispose();
   }
-
   Future<void> _signup() async {
-    final name = _nameController.text.trim();
-    final username = _usernameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+  final name = _nameController.text.trim();
+  final username = _usernameController.text.trim();
+  final email = _emailController.text.trim();
 
-    if (name.isEmpty ||
-        username.isEmpty ||
-        email.isEmpty ||
-        password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please fill in all fields"),
+  if (name.isEmpty || username.isEmpty || email.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Please fill in all fields"),
+      ),
+    );
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    // Send OTP using Supabase
+    await _authService.sendOtp(email);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("OTP sent successfully."),
+      ),
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OtpVerificationPage(
+          email: email,
+          fullname: name,
+          username: username,
         ),
-      );
-      return;
-    }
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
 
-    setState(() => _isLoading = true);
-
-    try {
-      // Expected POST body:
-      // { "email": email, "username": username, "password": password, "name": name }
-      await _authService.signup(
-        email: email,
-        username: username,
-        password: password,
-        name: name,
-      );
-
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OtpVerificationPage(email: email),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString()),
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+}
 
   Widget _fieldLabel(String text) {
     return Text(
@@ -210,13 +218,6 @@ class _SignupPageState extends State<SignupPage> {
                 const SizedBox(height: 16),
 
                 _fieldLabel('Password'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: false,
-                  cursorColor: Pallete.accentColor,
-                  decoration: _fieldDecoration('••••••••'),
-                ),
 
                 const SizedBox(height: 24),
 

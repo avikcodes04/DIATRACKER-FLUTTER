@@ -5,6 +5,7 @@ import '../pallete.dart';
 import '../widgets/profile_page_widgets/profile_action_tile.dart';
 import '../widgets/profile_page_widgets/profile_info_tile.dart';
 import "../pages/loginpage.dart";
+import 'package:supabase_flutter/supabase_flutter.dart';
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -15,7 +16,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final AuthService _authService = AuthService();
 
-  Map<String, dynamic>? _user;
+  User? _user;
   bool _isLoading = true;
   @override
   void initState() {
@@ -23,22 +24,14 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUser();
   }
 
-  Future<void> _loadUser() async {
-    try {
-      final user = await _authService.getCurrentUser();
+  void _loadUser() {
+  final user = _authService.currentUser();
 
-      setState(() {
-        _user = user;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      debugPrint(e.toString());
-    }
-  }
+  setState(() {
+    _user = user;
+    _isLoading = false;
+  });
+}
     
   
   Future<void> _logout() async {
@@ -88,7 +81,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // ── Name & Role ────────────────────────────────────
             Text(
-               _user?["name"] ?? "Loading...",
+               _user?.email ?? "Loading...",
               style: GoogleFonts.comfortaa(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -110,7 +103,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ProfileInfoTile(
               icon: Icons.email_outlined,
               label: "Email",
-              value: "${_user?["email"] ?? "Loading..."}",
+              value: _user?.email ?? "Loading...",
             ),
             ProfileInfoTile(
               icon: Icons.phone_outlined,

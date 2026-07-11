@@ -95,15 +95,15 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   try {
-    final loginResponse = await _authService.login(
-      email: email,
-      password: password,
-    );
+    // final loginResponse = await _authService.sendOtp(
+    //   email: email,
+    //   password: password,
+    // );
 
-    await StorageService.saveLogin(loginResponse);
+    // await StorageService.saveLogin(loginResponse);
 
     if (!mounted) return;
-    final user = await _authService.getCurrentUser();
+    final user = await _authService.currentUser();
     print('Current user: $user');
     Navigator.pushReplacement(
       context,

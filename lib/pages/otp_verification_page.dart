@@ -3,12 +3,18 @@ import 'package:diatrack/pallete.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
-
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 class OtpVerificationPage extends StatefulWidget {
   final String email;
+  final String fullname;
+  final String username;
 
-  const OtpVerificationPage({super.key, required this.email});
+  const OtpVerificationPage({
+    super.key,
+    required this.email,
+    required this.fullname,
+    required this.username,
+  });
 
   @override
   State<OtpVerificationPage> createState() => _OtpVerificationPageState();
@@ -16,8 +22,10 @@ class OtpVerificationPage extends StatefulWidget {
 
 class _OtpVerificationPageState extends State<OtpVerificationPage> {
   // 6 separate controllers/focus nodes so each digit box behaves independently
-  final List<TextEditingController> _controllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   final AuthService _authService = AuthService();
@@ -56,9 +64,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please enter the full 6-digit OTP"),
-        ),
+        const SnackBar(content: Text("Please enter the full 6-digit OTP")),
       );
       return;
     }
@@ -66,17 +72,39 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Expected POST body: { "email": widget.email, "otp": otp }
-      await _authService.confirmSignup(
-        email: widget.email,
-        otp: otp,
-      );
+      // Verify OTP with Supabase
+      await _authService.verifyOtp(email: widget.email, otp: otp);
+
+      final supabase = Supabase.instance.client;
+
+      final user = supabase.auth.currentUser;
+
+      if (user == null) {
+        throw Exception("Authentication failed.");
+      }
+
+      // Check whether this user already has a profile
+      final profile = await supabase
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      // First-time signup
+      if (profile == null) {
+        await supabase.from('profiles').insert({
+          'id': user.id,
+          'email': widget.email,
+          'full_name': widget.fullname,
+          'username': widget.username,
+        });
+      }
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Account verified! Please log in.")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Verification successful!")));
 
       Navigator.pushAndRemoveUntil(
         context,
@@ -85,14 +113,16 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-
 
   Widget _digitBox(int index) {
     return SizedBox(
@@ -199,8 +229,10 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children:
-                      List.generate(6, (index) => _digitBox(index)).toList(),
+                  children: List.generate(
+                    6,
+                    (index) => _digitBox(index),
+                  ).toList(),
                 ),
 
                 const SizedBox(height: 24),
@@ -240,9 +272,37 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
                 Center(
                   child: TextButton(
-                    onPressed: _isResending ? null : (){},
+                    onPressed: _isResending
+                        ? null
+                        : () async {
+                            setState(() => _isResending = true);
+
+                            try {
+                              await _authService.sendOtp(widget.email);
+
+                              if (!mounted) return;
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("OTP sent again."),
+                                ),
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(e.toString())),
+                              );
+                            } finally {
+                              if (mounted) {
+                                setState(() => _isResending = false);
+                              }
+                            }
+                          },
                     child: Text(
-                      _isResending ? 'Resending...' : "Didn't get a code? Resend",
+                      _isResending
+                          ? 'Resending...'
+                          : "Didn't get a code? Resend",
                       style: GoogleFonts.lato(
                         color: Pallete.accentColor,
                         fontSize: 13,
