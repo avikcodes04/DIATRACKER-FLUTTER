@@ -55,6 +55,3 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     );
   }
 }
-
-
-
