@@ -1,21 +1,29 @@
-import 'package:diatrack/pages/loginpage.dart';
 import 'package:flutter/material.dart';
-// import 'package:diatrack/pages/loginpage.dart';
-// import 'package:diatrack/pages/otp_verification_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:diatrack/core/router/app_router.dart';
+import 'package:diatrack/core/theme/app_theme.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    const ProviderScope(
+      child: DiaTrackApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class DiaTrackApp extends ConsumerWidget {
+  const DiaTrackApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
+
+    return MaterialApp.router(
       title: 'DiaTracker',
-      home: const LoginPage(), // Replace with a valid email for testing
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      routerConfig: router,
     );
   }
 }
